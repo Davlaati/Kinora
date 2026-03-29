@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: telegram_id
+    // Fields:
+    //   - telegram_id: string (required)
+    //   - first_name: string (required)
+    //   - last_name: string (optional)
+    //   - username: string (optional)
+    //   - is_premium: boolean (required)
+    //   - subscription_expiry: timestamp (optional)
+    //   - created_at: timestamp (required)
+    //
+    // Collection: movies
+    // Document ID: auto-generated
+    // Fields:
+    //   - title: string (required)
+    //   - description: string (required)
+    //   - genre: string (required)
+    //   - poster_url: string (required)
+    //   - video_url: string (required)
+    //   - is_premium: boolean (required)
+    //   - duration: string (optional)
+    //   - release_year: number (optional)
+    //   - created_at: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "davlaatbek09@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['telegram_id', 'first_name', 'is_premium']) &&
+             data.telegram_id is string &&
+             data.first_name is string && data.first_name.size() < 100 &&
+             data.is_premium is bool;
+    }
+
+    function isValidMovie(data) {
+      return data.keys().hasAll(['title', 'description', 'genre', 'poster_url', 'video_url', 'is_premium']) &&
+             data.title is string && data.title.size() < 200 &&
+             data.video_url is string && data.video_url.size() < 1000 &&
+             data.is_premium is bool;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) && request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /movies/{movieId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Kinora",
+  "description": "A movie streaming platform integrated as a Telegram Mini App.",
+  "requestFramePermissions": []
+}
